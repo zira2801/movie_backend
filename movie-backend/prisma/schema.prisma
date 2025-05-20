@@ -1,0 +1,211 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Model User: Quản lý người dùng
+model User {
+  id         Int       @id @default(autoincrement())
+  email      String    @unique
+  username   String    @unique
+  password   String // Lưu ý: Mật khẩu cần được mã hóa trong thực tế
+  fullName   String?
+  avatar     String? // URL đến ảnh đại diện
+  role       Role      @default(USER)
+  otp        String?
+  otpExpires DateTime?
+
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+  watchHistory WatchHistory[] // Lịch sử xem
+  watchLists   WatchList[] // Danh sách yêu thích
+  ratings      Rating[] // Đánh giá của người dùng
+  comments     Comment[] // Bình luận của người dùng
+  RefreshToken RefreshToken[]
+}
+
+model TempUser {
+  id         Int       @id @default(autoincrement())
+  email      String    @unique
+  password   String // Lưu ý: Mật khẩu cần được mã hóa trong thực tế
+  username   String
+  otp        String?
+  otpExpires DateTime?
+}
+
+// Enum Role: Vai trò người dùng
+enum Role {
+  USER
+  ADMIN
+}
+
+// Model Movie: Đại diện cho phim hoặc chương trình truyền hình
+model Movie {
+  id             Int             @id @default(autoincrement())
+  title          String
+  description    String?
+  poster         String? // URL đến poster phim
+  trailer        String? // URL đến trailer
+  releaseDate    DateTime?
+  duration       Int? // Thời lượng (phút)
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  episodes       Episode[] // Các tập (nếu là series)
+  ratings        Rating[] // Đánh giá
+  comments       Comment[] // Bình luận
+  watchHistory   WatchHistory[] // Lịch sử xem
+  watchLists     WatchList[] // Danh sách yêu thích
+  movieGenres    MovieGenre[] // Quan hệ nhiều-nhiều với Genre
+  movieActors    MovieActor[] // Quan hệ nhiều-nhiều với Actor
+  movieDirectors MovieDirector[] // Quan hệ nhiều-nhiều với Director
+}
+
+// Model Episode: Đại diện cho các tập của series
+model Episode {
+  id            Int            @id @default(autoincrement())
+  movieId       Int
+  movie         Movie          @relation(fields: [movieId], references: [id])
+  episodeNumber Int
+  title         String?
+  description   String?
+  videoUrl      String // URL đến video
+  duration      Int? // Thời lượng (phút)
+  releaseDate   DateTime?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  watchHistory  WatchHistory[] // Lịch sử xem
+}
+
+// Model Genre: Thể loại phim
+model Genre {
+  id          Int          @id @default(autoincrement())
+  name        String       @unique
+  description String?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  movieGenres MovieGenre[] // Quan hệ nhiều-nhiều với Movie
+}
+
+// Model Actor: Diễn viên
+model Actor {
+  id          Int          @id @default(autoincrement())
+  name        String
+  bio         String?
+  avatar      String? // URL đến ảnh
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  movieActors MovieActor[] // Quan hệ nhiều-nhiều với Movie
+}
+
+// Model Director: Đạo diễn
+model Director {
+  id             Int             @id @default(autoincrement())
+  name           String
+  bio            String?
+  avatar         String? // URL đến ảnh
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  movieDirectors MovieDirector[] // Quan hệ nhiều-nhiều với Movie
+}
+
+// Model MovieGenre: Bảng trung gian cho quan hệ nhiều-nhiều giữa Movie và Genre
+model MovieGenre {
+  movieId   Int
+  genreId   Int
+  movie     Movie    @relation(fields: [movieId], references: [id])
+  genre     Genre    @relation(fields: [genreId], references: [id])
+  createdAt DateTime @default(now())
+
+  @@id([movieId, genreId])
+}
+
+// Model MovieActor: Bảng trung gian cho quan hệ nhiều-nhiều giữa Movie và Actor
+model MovieActor {
+  movieId   Int
+  actorId   Int
+  movie     Movie    @relation(fields: [movieId], references: [id])
+  actor     Actor    @relation(fields: [actorId], references: [id])
+  createdAt DateTime @default(now())
+
+  @@id([movieId, actorId])
+}
+
+// Model MovieDirector: Bảng trung gian cho quan hệ nhiều-nhiều giữa Movie và Director
+model MovieDirector {
+  movieId    Int
+  directorId Int
+  movie      Movie    @relation(fields: [movieId], references: [id])
+  director   Director @relation(fields: [directorId], references: [id])
+  createdAt  DateTime @default(now())
+
+  @@id([movieId, directorId])
+}
+
+// Model WatchHistory: Lịch sử xem của người dùng
+model WatchHistory {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  movieId   Int
+  episodeId Int?
+  user      User     @relation(fields: [userId], references: [id])
+  movie     Movie    @relation(fields: [movieId], references: [id])
+  episode   Episode? @relation(fields: [episodeId], references: [id])
+  watchedAt DateTime @default(now())
+  progress  Int? // Tiến độ xem (giây)
+}
+
+// Model WatchList: Danh sách yêu thích của người dùng
+model WatchList {
+  userId  Int
+  movieId Int
+  user    User     @relation(fields: [userId], references: [id])
+  movie   Movie    @relation(fields: [movieId], references: [id])
+  addedAt DateTime @default(now())
+
+  @@id([userId, movieId])
+}
+
+// Model Rating: Đánh giá phim
+model Rating {
+  userId    Int
+  movieId   Int
+  user      User     @relation(fields: [userId], references: [id])
+  movie     Movie    @relation(fields: [movieId], references: [id])
+  score     Int // Điểm từ 1-10
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@id([userId, movieId])
+}
+
+// Model Comment: Bình luận về phim
+model Comment {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  movieId   Int
+  user      User     @relation(fields: [userId], references: [id])
+  movie     Movie    @relation(fields: [movieId], references: [id])
+  content   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// Model RefreshToken: Quản lý token làm mới
+model RefreshToken {
+  id        Int      @id @default(autoincrement())
+  token     String   @unique
+  userId    Int
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+}
